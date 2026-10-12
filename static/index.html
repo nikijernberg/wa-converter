@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WeakAuras Converter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>WeakAuras Converter</h1>
+      <p>Paste a Retail export, adapt it for WoW: Forever, and copy the import string back.</p>
+    </header>
+
+    <section>
+      <label for="import-box">Import string</label>
+      <textarea id="import-box" spellcheck="false" placeholder="!WA:2!…"></textarea>
+    </section>
+
+    <div class="bar">
+      <button type="button" id="paste">Paste</button>
+      <button type="button" id="open">Open file</button>
+      <button type="button" id="copy">Copy</button>
+      <button type="button" id="download" disabled>Download JSON</button>
+      <span class="spacer"></span>
+      <button type="button" id="encode">Create import string</button>
+      <button type="button" id="decode">Decode</button>
+      <button type="button" id="forever" class="primary">To Forever</button>
+    </div>
+    <input id="file" type="file" accept=".txt,.json,text/plain,application/json" hidden>
+
+    <p id="status" role="status">Ready</p>
+
+    <section id="report-wrap" hidden>
+      <h2>Forever report</h2>
+      <pre id="report"></pre>
+    </section>
+
+    <section>
+      <label for="json-box">JSON</label>
+      <textarea id="json-box" spellcheck="false" placeholder="Decoded aura JSON appears here."></textarea>
+    </section>
+
+    <p class="note">A large aura is kept in memory for 30 minutes so the buttons can share it. It is not written to disk.</p>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
