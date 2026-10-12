@@ -1,124 +1,247 @@
 :root {
-  --bg: #f3efe4;
-  --ink: #221c16;
-  --muted: #655d52;
-  --panel: #fffdf8;
-  --line: #d8d0c2;
-  --accent: #8d3e18;
-  --accent-ink: #fff8f3;
-  --danger: #8d2b2b;
+  --bg: #07080b;
+  --frame: #14110e;
+  --frame-2: #1c1814;
+  --ink: #f4ead7;
+  --muted: #b3a48d;
+  --line: #6d5736;
+  --line-soft: #3a3126;
+  --gold: #e2c17a;
+  --gold-deep: #a67c3d;
+  --inset: #0c0d11;
+  --danger: #e08b7a;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100vh;
   color: var(--ink);
-  font: 16px/1.45 "Segoe UI", system-ui, sans-serif;
+  font: 17px/1.45 "Source Sans 3", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(196, 148, 74, 0.22), transparent 55%),
+    radial-gradient(ellipse 40% 30% at 100% 100%, rgba(48, 72, 78, 0.28), transparent 50%),
+    var(--bg);
 }
 
-main {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 32px 20px 48px;
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 236, 200, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 236, 200, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+}
+
+.frame {
+  position: relative;
+  max-width: 1120px;
+  margin: 36px auto;
+  padding: 22px 22px 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 220, 160, 0.05), transparent 90px),
+    linear-gradient(180deg, var(--frame-2), var(--frame));
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 5px #100e0c,
+    0 0 0 6px #5a4630,
+    0 28px 70px rgba(0, 0, 0, 0.45);
+}
+
+.titlebar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.mark {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  color: var(--gold);
+  filter: drop-shadow(0 0 8px rgba(226, 193, 122, 0.35));
+}
+
+.kicker {
+  margin: 0 0 2px;
+  color: var(--gold);
+  font: 600 0.72rem/1.2 Cinzel, Palatino, serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 h1 {
-  margin: 0 0 6px;
-  font: 600 1.7rem/1.2 Palatino, "Palatino Linotype", Georgia, serif;
+  margin: 0;
+  font: 700 1.85rem/1.1 Cinzel, Palatino, serif;
+  letter-spacing: 0.02em;
 }
 
-h2 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-}
-
-header p,
+.lede,
 .note,
 label {
   color: var(--muted);
 }
 
-header p { margin: 0 0 22px; }
+.lede { margin: 6px 0 0; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
 
 label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font: 600 0.72rem/1 Cinzel, Palatino, serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+label::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, var(--line-soft), transparent);
 }
 
 textarea,
 pre {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: var(--inset);
   color: var(--ink);
-  font: 13px/1.45 Consolas, ui-monospace, monospace;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  font: 13px/1.5 Consolas, ui-monospace, monospace;
 }
 
 textarea {
   display: block;
-  min-height: 180px;
-  padding: 12px;
+  min-height: 300px;
+  padding: 12px 14px;
   resize: vertical;
 }
 
+textarea::placeholder { color: #6d6458; }
+
 textarea:focus,
 button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
 
 .bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 14px;
 }
 
-.spacer { flex: 1 1 12px; }
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group.actions {
+  margin-left: auto;
+  justify-content: flex-end;
+}
 
 button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
-  padding: 8px 12px;
-  font: inherit;
+  border-radius: 3px;
+  background: linear-gradient(#3a3228, #241e18);
+  color: #f6ecd9;
+  padding: 9px 12px;
+  font: 600 0.74rem/1.1 Cinzel, Palatino, serif;
+  letter-spacing: 0.03em;
   cursor: pointer;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
-button:hover { border-color: #b7ad9c; }
+button:hover { border-color: var(--gold); }
 
 button.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
+  border-color: #f0d7a2;
+  background: linear-gradient(#f0d29a, #c4923e 55%, #a8752e);
+  color: #2a1c08;
+  text-shadow: 0 1px 0 rgba(255, 236, 200, 0.35);
 }
 
+button.primary:hover { filter: brightness(1.06); }
+
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
+  filter: none;
 }
 
 #status {
-  min-height: 1.45em;
-  margin: 0 0 16px;
+  min-height: 1.4em;
+  margin: 12px 0 0;
+  color: var(--gold);
+  font-size: 0.95rem;
+}
+
+#status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+  vertical-align: 1px;
 }
 
 #status.error { color: var(--danger); }
+#status.error::before {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
 
-#report-wrap { margin-bottom: 18px; }
+#report-wrap[hidden] { display: none !important; }
+
+#report-wrap {
+  margin-top: 14px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font: 600 0.78rem/1 Cinzel, Palatino, serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 pre {
   margin: 0;
-  padding: 12px;
+  padding: 14px;
   white-space: pre-wrap;
+  border-left: 3px solid var(--gold-deep);
 }
 
 .note {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 0.85rem;
+}
+
+@media (max-width: 800px) {
+  .frame { margin: 16px 12px; padding: 16px; }
+  .workspace { grid-template-columns: 1fr; }
+  textarea { min-height: 180px; }
+  h1 { font-size: 1.45rem; }
 }

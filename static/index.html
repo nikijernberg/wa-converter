@@ -4,29 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WeakAuras Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <main>
-    <header>
-      <h1>WeakAuras Converter</h1>
-      <p>Paste a Retail export, adapt it for WoW: Forever, and copy the import string back.</p>
+  <main class="frame">
+    <header class="titlebar">
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="24" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="32" cy="32" r="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="32" cy="8" r="2.2" fill="currentColor"/>
+        <circle cx="32" cy="56" r="2.2" fill="currentColor"/>
+        <circle cx="8" cy="32" r="2.2" fill="currentColor"/>
+        <circle cx="56" cy="32" r="2.2" fill="currentColor"/>
+      </svg>
+      <div>
+        <p class="kicker">Retail export to WoW: Forever</p>
+        <h1>WeakAuras Converter</h1>
+        <p class="lede">Paste an export, adapt it, and copy the import string back into WeakAuras.</p>
+      </div>
     </header>
 
-    <section>
-      <label for="import-box">Import string</label>
-      <textarea id="import-box" spellcheck="false" placeholder="!WA:2!…"></textarea>
-    </section>
+    <div class="workspace">
+      <section class="pane">
+        <label for="import-box">Import string</label>
+        <textarea id="import-box" spellcheck="false" placeholder="!WA:2!…"></textarea>
+      </section>
+      <section class="pane">
+        <label for="json-box">JSON</label>
+        <textarea id="json-box" spellcheck="false" placeholder="Decoded aura JSON appears here."></textarea>
+      </section>
+    </div>
 
     <div class="bar">
-      <button type="button" id="paste">Paste</button>
-      <button type="button" id="open">Open file</button>
-      <button type="button" id="copy">Copy</button>
-      <button type="button" id="download" disabled>Download JSON</button>
-      <span class="spacer"></span>
-      <button type="button" id="encode">Create import string</button>
-      <button type="button" id="decode">Decode</button>
-      <button type="button" id="forever" class="primary">To Forever</button>
+      <div class="group">
+        <button type="button" id="paste">Paste</button>
+        <button type="button" id="open">Open file</button>
+        <button type="button" id="copy">Copy</button>
+        <button type="button" id="download" disabled>Download JSON</button>
+      </div>
+      <div class="group actions">
+        <button type="button" id="encode">Create import string</button>
+        <button type="button" id="decode">Decode</button>
+        <button type="button" id="forever" class="primary">To Forever</button>
+      </div>
     </div>
     <input id="file" type="file" accept=".txt,.json,text/plain,application/json" hidden>
 
@@ -35,11 +58,6 @@
     <section id="report-wrap" hidden>
       <h2>Forever report</h2>
       <pre id="report"></pre>
-    </section>
-
-    <section>
-      <label for="json-box">JSON</label>
-      <textarea id="json-box" spellcheck="false" placeholder="Decoded aura JSON appears here."></textarea>
     </section>
 
     <p class="note">A large aura is kept in memory for 30 minutes so the buttons can share it. It is not written to disk.</p>
