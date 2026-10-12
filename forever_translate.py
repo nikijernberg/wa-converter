@@ -53,6 +53,9 @@ _WRAPPERS = {
 _RENAMES = {
     "GetSpellTexture": "C_Spell.GetSpellTexture",
     "GetSpellName": "C_Spell.GetSpellName",
+    "GetSpellLink": "C_Spell.GetSpellLink",
+    "GetSpellDescription": "C_Spell.GetSpellDescription",
+    "GetSpellSubtext": "C_Spell.GetSpellSubtext",
     "GetItemInfo": "C_Item.GetItemInfo",
     "GetItemInfoInstant": "C_Item.GetItemInfoInstant",
     "GetItemCount": "C_Item.GetItemCount",
@@ -90,6 +93,26 @@ end
 """
 
 _SHIELD_WORDS = ("shield", "absorb", "spell_absorbed", "sköld")
+_AURA_SUFFIXES = {
+    "_AURA_APPLIED",
+    "_AURA_REMOVED",
+    "_AURA_REFRESH",
+    "_AURA_APPLIED_DOSE",
+    "_AURA_REMOVED_DOSE",
+    "_AURA_BROKEN",
+}
+_LIVE_CONDITION_PROPERTIES = {"alpha", "color", "desaturate"}
+
+DAMAGE_CUSTOM = """function(event, unit, action)
+  if unit and unit ~= "player" then
+    return false
+  end
+  if issecretvalue and issecretvalue(action) then
+    return false
+  end
+  return action == "WOUND"
+end
+"""
 
 
 @dataclass
@@ -97,10 +120,19 @@ class ForeverReport:
     rewrites: dict[str, int] = field(default_factory=dict)
     absorb_conversions: list[str] = field(default_factory=list)
     modern_auras: list[str] = field(default_factory=list)
+    cast_conversions: list[str] = field(default_factory=list)
+    damage_conversions: list[str] = field(default_factory=list)
     combat_log: list[str] = field(default_factory=list)
+    spell_damage: list[str] = field(default_factory=list)
     frozen_auras: list[str] = field(default_factory=list)
     spell_names: list[str] = field(default_factory=list)
     combat_log_code: list[str] = field(default_factory=list)
+    health_thresholds: list[str] = field(default_factory=list)
+    foreign_casts: list[str] = field(default_factory=list)
+    hidden_names: list[str] = field(default_factory=list)
+    frozen_conditions: list[str] = field(default_factory=list)
+    chat_blocked: list[str] = field(default_factory=list)
+    nameplates: list[str] = field(default_factory=list)
 
     def add_rewrite(self, name: str, count: int) -> None:
         if count:
@@ -129,17 +161,42 @@ def _shieldish(aura_name: str, blob: str) -> bool:
     return any(word in text for word in _SHIELD_WORDS)
 
 
+def _id_list(value) -> list:
+    if isinstance(value, dict):
+        if value and all(item is True for item in value.values()):
+            return [key for key in value if key not in (None, "")]
+        return [item for item in value.values() if item not in (None, "", False)]
+    if isinstance(value, list):
+        return [item for item in value if item not in (None, "", False)]
+    if value not in (None, "", False):
+        return [value]
+    return []
+
+
 def _spell_ids(trigger: dict) -> list:
     found = []
-    raw = trigger.get("auraspellids")
-    if isinstance(raw, list):
-        found.extend(raw)
-    elif isinstance(raw, dict):
-        found.extend(raw.values())
-    for key in ("spellId", "spellID"):
-        if trigger.get(key) not in (None, ""):
-            found.append(trigger.get(key))
+    found.extend(_id_list(trigger.get("auraspellids")))
+    for key in ("spellId", "spellID", "spellIds"):
+        if trigger.get(f"use_{key}") is False:
+            continue
+        found.extend(_id_list(trigger.get(key)))
     return [spell_id for spell_id in found if spell_id not in (None, "")]
+
+
+def _used_spell_ids(trigger: dict) -> list:
+    if trigger.get("use_spellId") is False and trigger.get("use_spellIds") is False:
+        return []
+    if trigger.get("use_spellId") or trigger.get("use_spellIds") or trigger.get("spellId") or trigger.get("spellIds"):
+        return _spell_ids(trigger)
+    return []
+
+
+def _is_combat_trigger(trigger: dict, blob: str) -> bool:
+    return (
+        trigger.get("type") == "combatlog"
+        or trigger.get("event") == "Combat Log"
+        or _uses_combat_log(blob)
+    )
 
 
 def _absorb_trigger() -> dict:
@@ -155,13 +212,97 @@ def _absorb_trigger() -> dict:
     }
 
 
+def _damage_trigger() -> dict:
+    return {
+        "type": "custom",
+        "custom_type": "event",
+        "check": "event",
+        "events": "UNIT_COMBAT:player",
+        "unit": "player",
+        "custom": DAMAGE_CUSTOM,
+        "custom_hide": "timed",
+        "duration": "1",
+    }
+
+
+def _convert_combat_log(aura_name: str, trigger: dict, report: ForeverReport) -> bool:
+    """Replace a combat log trigger when Musca documents an equivalent. Leave the rest."""
+    if trigger.get("type") != "combatlog" and trigger.get("event") != "Combat Log":
+        return False
+    prefix = trigger.get("subeventPrefix") or ""
+    suffix = trigger.get("subeventSuffix") or ""
+    spell_ids = _used_spell_ids(trigger)
+    source_is_player = trigger.get("use_sourceUnit") and trigger.get("sourceUnit") == "player"
+    dest_is_player = trigger.get("use_destUnit") and trigger.get("destUnit") == "player"
+    dest_unit = trigger.get("destUnit") if trigger.get("use_destUnit") else None
+
+    if suffix in _AURA_SUFFIXES and spell_ids and dest_unit:
+        trigger.clear()
+        trigger.update({
+            "type": "secretAura",
+            "useExactSpellId": True,
+            "auraspellids": spell_ids,
+            "unit": dest_unit,
+            "debuffType": "BOTH",
+        })
+        report.modern_auras.append(aura_name)
+        return True
+
+    if prefix == "SPELL" and suffix == "_CAST_SUCCESS" and source_is_player:
+        duration = trigger.get("duration") or "1"
+        replacement = {
+            "type": "event",
+            "event": "Spell Cast Succeeded",
+            "unit": "player",
+            "use_unit": True,
+            "duration": duration,
+        }
+        if spell_ids:
+            replacement["spellId"] = spell_ids
+            replacement["use_spellId"] = True
+        trigger.clear()
+        trigger.update(replacement)
+        report.cast_conversions.append(aura_name)
+        return True
+
+    is_damage = suffix.endswith("_DAMAGE")
+    if is_damage and dest_is_player:
+        if spell_ids:
+            report.spell_damage.append(aura_name)
+            return False
+        duration = trigger.get("duration") or "1"
+        replacement = _damage_trigger()
+        replacement["duration"] = duration
+        trigger.clear()
+        trigger.update(replacement)
+        report.damage_conversions.append(aura_name)
+        return True
+
+    return False
+
+
+def _note_trigger_limits(aura_name: str, trigger: dict, report: ForeverReport) -> None:
+    event = trigger.get("event")
+    if event in ("Health", "Power") and any(
+        trigger.get(flag) for flag in ("use_percenthealth", "use_health", "use_percentpower", "use_power", "use_deficit")
+    ):
+        report.health_thresholds.append(aura_name)
+    unit = trigger.get("unit")
+    if event == "Cast" and unit not in (None, "", "player", "pet"):
+        report.foreign_casts.append(aura_name)
+    if event == "Unit Characteristics" and any(trigger.get(flag) for flag in ("use_name", "use_npcId", "use_npcID")):
+        report.hidden_names.append(aura_name)
+    if isinstance(event, str) and event.startswith("Chat"):
+        report.chat_blocked.append(aura_name)
+    if trigger.get("use_spellNames") and not _used_spell_ids(trigger):
+        names = _names_from(trigger.get("spellNames"))
+        if names:
+            report.spell_names.append(f"{aura_name}: {', '.join(names[:4])}")
+
+
 def _convert_trigger(aura_name: str, trigger: dict, report: ForeverReport) -> bool:
     blob = json.dumps(trigger, ensure_ascii=False)
-    combat = (
-        trigger.get("type") == "combatlog"
-        or trigger.get("event") == "Combat Log"
-        or _uses_combat_log(blob)
-    )
+    combat = _is_combat_trigger(trigger, blob)
     if combat and _shieldish(aura_name, blob):
         trigger.clear()
         trigger.update(_absorb_trigger())
@@ -185,11 +326,12 @@ def _convert_trigger(aura_name: str, trigger: dict, report: ForeverReport) -> bo
         names = _names_from(trigger.get("spellName"))
         if names:
             report.spell_names.append(f"{aura_name}: {', '.join(names[:4])}")
-    if combat:
+    if combat and not _convert_combat_log(aura_name, trigger, report) and aura_name not in report.spell_damage:
         report.combat_log.append(aura_name)
     events = trigger.get("events")
     if isinstance(events, str) and _COMBAT_LOG_EVENT.search(events) and aura_name not in report.absorb_conversions:
         report.combat_log_code.append(aura_name)
+    _note_trigger_limits(aura_name, trigger, report)
     return False
 
 
@@ -271,16 +413,46 @@ def load_aura_document(text: str) -> tuple[dict, str]:
     raise ValueError("JSON does not contain an aura. Open a decoded export, or an aura that contains triggers.")
 
 
+def _note_aura_limits(aura: dict, aura_name: str, report: ForeverReport) -> None:
+    if aura.get("anchorFrameType") == "NAMEPLATE":
+        report.nameplates.append(aura_name)
+    conditions = aura.get("conditions")
+    if not isinstance(conditions, list):
+        return
+    for condition in conditions:
+        if not isinstance(condition, dict):
+            continue
+        for change in condition.get("changes") or []:
+            if not isinstance(change, dict):
+                continue
+            prop = change.get("property")
+            if isinstance(prop, str) and prop not in _LIVE_CONDITION_PROPERTIES:
+                report.frozen_conditions.append(aura_name)
+                return
+
+
 def translate_document(document: dict) -> tuple[dict, ForeverReport]:
     report = ForeverReport()
     for aura in _auras(document):
-        _walk(aura, _aura_name(aura, "Aura"), report)
+        aura_name = _aura_name(aura, "Aura")
+        _walk(aura, aura_name, report)
+        _note_aura_limits(aura, aura_name, report)
     report.absorb_conversions = list(dict.fromkeys(report.absorb_conversions))
     report.modern_auras = list(dict.fromkeys(report.modern_auras))
-    report.combat_log = [name for name in dict.fromkeys(report.combat_log) if name not in report.absorb_conversions]
+    report.cast_conversions = list(dict.fromkeys(report.cast_conversions))
+    report.damage_conversions = list(dict.fromkeys(report.damage_conversions))
+    solved = set(report.absorb_conversions) | set(report.modern_auras) | set(report.cast_conversions) | set(report.damage_conversions)
+    report.combat_log = [name for name in dict.fromkeys(report.combat_log) if name not in solved and name not in report.spell_damage]
+    report.spell_damage = list(dict.fromkeys(report.spell_damage))
     report.frozen_auras = list(dict.fromkeys(report.frozen_auras))
     report.spell_names = list(dict.fromkeys(report.spell_names))
     report.combat_log_code = list(dict.fromkeys(report.combat_log_code))
+    report.health_thresholds = list(dict.fromkeys(report.health_thresholds))
+    report.foreign_casts = list(dict.fromkeys(report.foreign_casts))
+    report.hidden_names = list(dict.fromkeys(report.hidden_names))
+    report.frozen_conditions = list(dict.fromkeys(report.frozen_conditions))
+    report.chat_blocked = list(dict.fromkeys(report.chat_blocked))
+    report.nameplates = list(dict.fromkeys(report.nameplates))
     return document, report
 
 
@@ -315,11 +487,26 @@ def format_report(aura_name: str, report: ForeverReport) -> str:
         lines.append("The Aura trigger was changed to Aura (Modern), so the buff keeps updating in combat:")
         lines.append(f"- {_sample(report.modern_auras)}")
         lines.append("")
+    if report.cast_conversions:
+        lines.append("Your successful casts now use Spell Cast Succeeded. That event still runs on Forever:")
+        lines.append(f"- {_sample(report.cast_conversions)}")
+        lines.append("")
+    if report.damage_conversions:
+        lines.append(
+            "Damage taken now uses UNIT_COMBAT:player. Forever has no combat log, and this alert fires for any hit on you:"
+        )
+        lines.append(f"- {_sample(report.damage_conversions)}")
+        lines.append("")
 
     limits = []
     if report.combat_log:
         limits.append(
-            f"Combat Log trigger in {_sample(report.combat_log)}. Forever closes the combat log, so that trigger does not run."
+            f"Combat Log trigger in {_sample(report.combat_log)}. Forever closes the combat log, and this one has no equivalent event. "
+            "Aura gains can become Aura (Modern) only with a unit and a spell ID. Your casts can become Spell Cast Succeeded only when the source is Player."
+        )
+    if report.spell_damage:
+        limits.append(
+            f"Damage filtered by spell ID in {_sample(report.spell_damage)}. UNIT_COMBAT does not say which spell hit, so the filter cannot be rebuilt."
         )
     if report.combat_log_code:
         limits.append(
@@ -327,11 +514,35 @@ def format_report(aura_name: str, report: ForeverReport) -> str:
         )
     if report.frozen_auras:
         limits.append(
-            f"Classic Aura trigger in {_sample(report.frozen_auras)}. Buffs and debuffs freeze in combat. Aura (Modern) keeps updating."
+            f"Classic Aura trigger in {_sample(report.frozen_auras)}. Buffs and debuffs freeze in combat. Aura (Modern) needs a spell ID, and a name alone is ignored."
         )
     if report.spell_names:
         limits.append(
-            "Spells entered by name instead of spell ID: " + _sample(report.spell_names, 6) + "."
+            "Spells entered by name instead of spell ID: " + _sample(report.spell_names, 6) + ". Every rank has its own ID on Forever."
+        )
+    if report.health_thresholds:
+        limits.append(
+            f"Health or power percent check in {_sample(report.health_thresholds)}. The bar still moves in combat, but the comparison keeps its last result. Show only below (%) can hide the aura in combat, and that option was not copied."
+        )
+    if report.foreign_casts:
+        limits.append(
+            f"Cast trigger on another unit in {_sample(report.foreign_casts)}. Other players' casts are hidden in instances."
+        )
+    if report.hidden_names:
+        limits.append(
+            f"Name or NPC ID check in {_sample(report.hidden_names)}. Enemy names and IDs are hidden in instances."
+        )
+    if report.frozen_conditions:
+        limits.append(
+            f"A condition in {_sample(report.frozen_conditions)} changes more than alpha, color, or desaturation. Sounds, glows, and other changes wait until combat ends."
+        )
+    if report.chat_blocked:
+        limits.append(
+            f"Chat trigger in {_sample(report.chat_blocked)}. Chat messages can be blocked during encounters and PvP."
+        )
+    if report.nameplates:
+        limits.append(
+            f"Nameplate anchor in {_sample(report.nameplates)}. It only follows the default Blizzard nameplates. Plater, ElvUI, and Kui replace those frames."
         )
     limits.append("A Retail spell ID can be the wrong rank on Forever. Check the ID if the aura does not show.")
     lines.append("This cannot be fixed automatically:")

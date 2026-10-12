@@ -3,6 +3,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
+from forever_translate import format_report, translate_document
 from server import app
 
 MINIMAL = {
@@ -73,6 +74,63 @@ class RoundTripTest(unittest.TestCase):
         response = self.client.post("/api/decode", json={})
         self.assertEqual(response.status_code, 400)
         self.assertIn("Paste a WeakAuras string", response.json()["detail"])
+
+
+def _doc(aura_id: str, trigger: dict) -> dict:
+    return {"m": "d", "d": {"id": aura_id, "triggers": {"1": {"trigger": trigger}}}}
+
+
+class ForeverRulesTest(unittest.TestCase):
+    def test_documented_combat_log_replacements(self):
+        document = {
+            "m": "d",
+            "d": {"id": "Parent", "triggers": {"1": {"trigger": {"type": "aura2", "auranames": ["Power Word: Fortitude"]}}}},
+            "c": [
+                _doc("Cast", {
+                    "type": "combatlog",
+                    "event": "Combat Log",
+                    "subeventPrefix": "SPELL",
+                    "subeventSuffix": "_CAST_SUCCESS",
+                    "use_sourceUnit": True,
+                    "sourceUnit": "player",
+                    "use_spellId": True,
+                    "spellId": ["348"],
+                })["d"],
+                _doc("Hit", {
+                    "type": "combatlog",
+                    "event": "Combat Log",
+                    "subeventPrefix": "SPELL",
+                    "subeventSuffix": "_DAMAGE",
+                    "use_destUnit": True,
+                    "destUnit": "player",
+                })["d"],
+                _doc("Interrupt", {
+                    "type": "combatlog",
+                    "event": "Combat Log",
+                    "subeventPrefix": "SPELL",
+                    "subeventSuffix": "_INTERRUPT",
+                    "use_sourceUnit": True,
+                    "sourceUnit": "player",
+                })["d"],
+            ],
+        }
+        translated, report = translate_document(document)
+        triggers = [child["triggers"]["1"]["trigger"] for child in translated["c"]]
+        self.assertEqual(triggers[0]["event"], "Spell Cast Succeeded")
+        self.assertEqual(triggers[0]["spellId"], ["348"])
+        self.assertIn("UNIT_COMBAT:player", triggers[1]["events"])
+        self.assertEqual(triggers[2]["event"], "Combat Log")
+        text = format_report("Parent", report)
+        self.assertIn("Spell Cast Succeeded", text)
+        self.assertIn("UNIT_COMBAT:player", text)
+        self.assertIn("Interrupt", text)
+        self.assertIn("Power Word: Fortitude", text)
+        self.assertIn("no equivalent", text)
+
+        again, second = translate_document(translated)
+        self.assertEqual(again["c"][0]["triggers"]["1"]["trigger"]["event"], "Spell Cast Succeeded")
+        self.assertEqual(second.cast_conversions, [])
+        self.assertEqual(second.damage_conversions, [])
 
 
 if __name__ == "__main__":
