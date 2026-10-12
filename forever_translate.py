@@ -102,6 +102,10 @@ _AURA_SUFFIXES = {
     "_AURA_BROKEN",
 }
 _LIVE_CONDITION_PROPERTIES = {"alpha", "color", "desaturate"}
+_SECRET_CALLS = tuple(
+    re.compile(rf"(?<![\w.]){name}\s*\(")
+    for name in ("UnitHealth", "UnitPower", "UnitGetTotalAbsorbs", "GetSpellCooldown")
+)
 
 DAMAGE_CUSTOM = """function(event, unit, action)
   if unit and unit ~= "player" then
@@ -133,6 +137,7 @@ class ForeverReport:
     frozen_conditions: list[str] = field(default_factory=list)
     chat_blocked: list[str] = field(default_factory=list)
     nameplates: list[str] = field(default_factory=list)
+    secret_code: list[str] = field(default_factory=list)
 
     def add_rewrite(self, name: str, count: int) -> None:
         if count:
@@ -340,6 +345,8 @@ def _rewrite_code(code: str, aura_name: str, report: ForeverReport) -> str:
         report.combat_log_code.append(aura_name)
     if _COMBAT_LOG_EVENT.search(code):
         report.combat_log_code.append(aura_name)
+    if any(call.search(code) for call in _SECRET_CALLS) and "issecretvalue" not in code:
+        report.secret_code.append(aura_name)
     for name, wrapper in _WRAPPERS.items():
         updated, count = _CALLS[name].subn(wrapper + "(", code)
         report.add_rewrite(name, count)
@@ -453,6 +460,7 @@ def translate_document(document: dict) -> tuple[dict, ForeverReport]:
     report.frozen_conditions = list(dict.fromkeys(report.frozen_conditions))
     report.chat_blocked = list(dict.fromkeys(report.chat_blocked))
     report.nameplates = list(dict.fromkeys(report.nameplates))
+    report.secret_code = list(dict.fromkeys(report.secret_code))
     return document, report
 
 
@@ -535,6 +543,11 @@ def format_report(aura_name: str, report: ForeverReport) -> str:
     if report.frozen_conditions:
         limits.append(
             f"A condition in {_sample(report.frozen_conditions)} changes more than alpha, color, or desaturation. Sounds, glows, and other changes wait until combat ends."
+        )
+    if report.secret_code:
+        limits.append(
+            f"Custom code in {_sample(report.secret_code)} reads health, power, absorbs, or a cooldown without issecretvalue. "
+            "A hidden value cannot be compared in combat, and there is no safe way to add that check automatically."
         )
     if report.chat_blocked:
         limits.append(
