@@ -2,6 +2,8 @@
 
 Web tool that decodes a Retail WeakAuras export (`!WA:2!`), rewrites it for WoW: Forever, and encodes an import string you can paste back into WeakAuras.
 
+Decode and encode come from [python-weakauras-tool](https://github.com/geexmmo/python-weakauras-tool) by [Arthur (geexmmo)](https://github.com/geexmmo). This project adds the page and the WoW: Forever rewrite.
+
 Decoding uses the same Lua libraries as WeakAuras (LibDeflate and LibSerialize). That work runs on the server. GitHub Pages cannot run it.
 
 ## Run it on your computer

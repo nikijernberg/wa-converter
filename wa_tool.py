@@ -1,3 +1,9 @@
+"""Decode and encode WeakAuras strings.
+
+Based on python-weakauras-tool by Arthur (geexmmo):
+https://github.com/geexmmo/python-weakauras-tool
+"""
+
 import argparse
 import json
 import re

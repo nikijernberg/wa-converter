@@ -239,6 +239,18 @@ pre {
   font-size: 0.85rem;
 }
 
+.credit {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.credit a {
+  color: var(--gold);
+}
+
 @media (max-width: 800px) {
   .frame { margin: 16px 12px; padding: 16px; }
   .workspace { grid-template-columns: 1fr; }
